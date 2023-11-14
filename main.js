@@ -1,5 +1,4 @@
 const fetch = require('node-fetch');
-const { js2xml, xml2js } = require('xml-js');
 const fs = require('fs');
 
 async function getCryptoRate(from, to) {
@@ -19,42 +18,32 @@ function getCurrenciesFromFile() {
         const jsonData = fs.readFileSync('currencies.json', 'utf8');
         return JSON.parse(jsonData);
     } catch (error) {
-        console.error('Ошибка при чтении или разборе файла currencies.json: ', error);
-        return [];
-    }
-}
-
-function createXml(data) {
-    let rates = { rates: { item: data } };
-    return js2xml(rates, { compact: true, spaces: 4 });
-}
-
-function readXmlFile(filePath) {
-    try {
-        const xmlData = fs.readFileSync(filePath, 'utf8');
-        const result = xml2js(xmlData, { compact: true, alwaysArray: true });
-        return result.rates.item || [];
-    } catch (error) {
-        console.error(`Ошибка при чтении файла ${filePath}: `, error);
+        console.error('Ошибка при чтении файла currencies.json: ', error);
         return [];
     }
 }
 
 function calculateCrossRates(rates) {
     let crossRates = [];
+    let rateMap = {};
+
+    rates.forEach(rate => {
+        rateMap[rate.from] = parseFloat(rate.out);
+    });
+
     rates.forEach(fromRate => {
         rates.forEach(toRate => {
-            if (fromRate.from._text !== toRate.from._text) {
-                const crossRateValue = parseFloat(fromRate.out._text) / parseFloat(toRate.out._text);
-                const crossRate = {
-                    from: { _text: fromRate.from._text },
-                    to: { _text: toRate.from._text },
-                    out: { _text: crossRateValue.toFixed(6) }
-                };
-                crossRates.push({ item: crossRate });
+            if (fromRate.from !== toRate.from) {
+                const crossRateValue = rateMap[fromRate.from] / rateMap[toRate.from];
+                crossRates.push({
+                    from: fromRate.from,
+                    to: toRate.from,
+                    out: crossRateValue.toFixed(6)
+                });
             }
         });
     });
+
     return crossRates;
 }
 
@@ -66,23 +55,16 @@ async function main() {
         for (let currency of currencies) {
             const rate = await getCryptoRate(currency, 'USDT');
             if (rate) {
-                ratesData.push({ from: { _text: currency }, to: { _text: 'USDT' }, out: { _text: rate } });
+                ratesData.push({ from: currency, to: 'USDT', out: rate });
             }
         }
 
-        const ratesXml = createXml(ratesData);
-        fs.writeFileSync('rates.xml', ratesXml);
+        fs.writeFileSync('rates.json', JSON.stringify(ratesData, null, 4));
 
-        const savedRates = readXmlFile('rates.xml');
-        const crossRates = calculateCrossRates(savedRates);
+        const crossRates = calculateCrossRates(ratesData);
+        fs.writeFileSync('crossRates.json', JSON.stringify(crossRates, null, 4));
 
-        // Добавим логирование для отладки
-        console.log('Сгенерированные кросс-курсы:', crossRates);
-
-        const crossRatesXml = createXml(crossRates);
-        fs.writeFileSync('rates1.xml', crossRatesXml);
-
-        console.log('Курсы криптовалют сохранены в файл rates.xml и кросс-курсы в rates1.xml');
+        console.log('Курсы криптовалют сохранены в файл rates.json и кросс-курсы в crossRates.json');
     } catch (error) {
         console.error('Ошибка: ', error);
     }
