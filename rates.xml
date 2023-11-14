@@ -1,0 +1,17 @@
+<rates>
+    <item>
+        <from>BTC</from>
+        <to>USDT</to>
+        <out>36653.22000000</out>
+    </item>
+    <item>
+        <from>ETH</from>
+        <to>USDT</to>
+        <out>2063.89000000</out>
+    </item>
+    <item>
+        <from>XRP</from>
+        <to>USDT</to>
+        <out>0.66540000</out>
+    </item>
+</rates>
